@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Composition Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header id="composition-header">
+            <h1 id="comp-title"></h1>
+            <div id="comp-details" class="details-bar"></div>
+        </header>
+
+        <main>
+            <section class="card">
+                <h2>段落開頭建議</h2>
+                <p>根據老師設定的結構，這裡提供四個段落的開頭第一句話當作參考：</p>
+                <div id="paragraph-starters">
+                    <div class="skeleton-loader"></div>
+                </div>
+            </section>
+
+            <h2>寫作指導</h2>
+            <div id="guidance-columns" class="grid-container">
+                </div>
+            
+            <h2>完整範文參考</h2>
+             <section class="card" id="full-composition-section">
+                <p>點擊按鈕，讓 AI 根據以上所有設定，生成一篇完整的範文。</p>
+                <button id="generate-full-comp-btn" class="button-primary">生成完整範文</button>
+                <div id="full-composition-output" class="output-box"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

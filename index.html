@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作文小幫手 - 教師設定</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>作文小幫手 - 教師設定 ✍️</h1>
+        <p>請為您的學生設定寫作指導工具，完成後點擊生成按鈕。</p>
+        
+        <form id="configForm">
+            <fieldset>
+                <legend>基本資料</legend>
+                <div class="form-group">
+                    <label for="apiKey">您的 Gemini API Key</label>
+                    <input type="password" id="apiKey" required placeholder="請在此輸入您的 API Key">
+                </div>
+                <div class="form-group">
+                    <label for="title">作文題目</label>
+                    <input type="text" id="title" required placeholder="例如：我最難忘的一次旅行">
+                </div>
+                <div class="form-group">
+                    <label for="level">學生年級</label>
+                    <select id="level">
+                        <option value="四年級">四年級</option>
+                        <option value="五年級">五年級</option>
+                        <option value="六年級">六年級</option>
+                    </select>
+                </div>
+                 <div class="form-group">
+                    <label for="wordCount">字數限制</label>
+                    <select id="wordCount">
+                        <option value="100字">100字</option>
+                        <option value="500字">500字</option>
+                        <option value="800字">800字</option>
+                        <option value="1000字">1000字</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="style">文體</label>
+                    <select id="style">
+                        <option value="記敘文本">記敘文本</option>
+                        <option value="抒情文本">抒情文本</option>
+                        <option value="應用文本">應用文本</option>
+                        <option value="說明文本">說明文本</option>
+                        <option value="議論文本">議論文本</option>
+                        <option value="詩歌">詩歌</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="structure">結構</label>
+                    <select id="structure">
+                        <option value="時間順序式">時間順序式</option>
+                        <option value="起承轉合式">起承轉合式</option>
+                        <option value="總分總式">總分總式</option>
+                        <option value="對比式">對比式</option>
+                        <option value="問題解決式">問題解決式</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>進階指導選項 (可複選)</legend>
+                <div class="form-group-checkbox">
+                    <h3>寫作技巧</h3>
+                    <label><input type="checkbox" name="skills" value="開頭技巧"> 開頭技巧</label>
+                    <label><input type="checkbox" name="skills" value="結尾技巧"> 結尾技巧</label>
+                    <label><input type="checkbox" name="skills" value="描寫技巧"> 描寫技巧</label>
+                </div>
+                <div class="form-group-checkbox">
+                    <h3>建議詞語</h3>
+                    <label><input type="checkbox" name="phrases" value="四字語詞"> 四字語詞</label>
+                    <label><input type="checkbox" name="phrases" value="成語"> 成語</label>
+                    <label><input type="checkbox" name="phrases" value="名言佳句"> 名言佳句</label>
+                </div>
+                <div class="form-group-checkbox">
+                    <h3>建議句式</h3>
+                    <label><input type="checkbox" name="sentenceStyles" value="承接"> 承接</label>
+                    <label><input type="checkbox" name="sentenceStyles" value="轉折"> 轉折</label>
+                    <label><input type="checkbox" name="sentenceStyles" value="假設"> 假設</label>
+                    <label><input type="checkbox" name="sentenceStyles" value="條件"> 條件</label>
+                    <label><input type="checkbox" name="sentenceStyles" value="因果"> 因果</label>
+                    <label><input type="checkbox" name="sentenceStyles" value="目的"> 目的</label>
+                </div>
+                <div class="form-group-checkbox">
+                    <h3>修辭技巧</h3>
+                    <label><input type="checkbox" name="rhetoric" value="譬喻"> 譬喻</label>
+                    <label><input type="checkbox" name="rhetoric" value="擬人"> 擬人</label>
+                    <label><input type="checkbox" name="rhetoric" value="誇飾"> 誇飾</label>
+                    <label><input type="checkbox" name="rhetoric" value="排比"> 排比</label>
+                    <label><input type="checkbox" name="rhetoric" value="雙關"> 雙關</label>
+                    <label><input type="checkbox" name="rhetoric" value="映襯"> 映襯</label>
+                </div>
+            </fieldset>
+
+            <button type="submit" class="button-primary">生成學生作文工具</button>
+        </form>
+    </div>
+
+<script>
+        document.getElementById('configForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // 1. Get the API Key and store it in sessionStorage
+            const apiKey = document.getElementById('apiKey').value;
+            if (!apiKey) {
+                alert('請務必填寫 API Key！');
+                return;
+            }
+            sessionStorage.setItem('geminiApiKey', apiKey); // Store key securely
+
+            const getCheckedValues = (name) => {
+                return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+            };
+
+            const params = new URLSearchParams();
+            // 2. Do NOT add the API key to the URL parameters
+            params.set('title', document.getElementById('title').value);
+            params.set('level', document.getElementById('level').value);
+            params.set('wordCount', document.getElementById('wordCount').value);
+            params.set('style', document.getElementById('style').value);
+            params.set('structure', document.getElementById('structure').value);
+            
+            const skills = getCheckedValues('skills');
+            if (skills.length > 0) params.set('skills', skills.join(','));
+
+            const phrases = getCheckedValues('phrases');
+            if (phrases.length > 0) params.set('phrases', phrases.join(','));
+
+            const sentenceStyles = getCheckedValues('sentenceStyles');
+            if (sentenceStyles.length > 0) params.set('sentenceStyles', sentenceStyles.join(','));
+
+            const rhetoric = getCheckedValues('rhetoric');
+            if (rhetoric.length > 0) params.set('rhetoric', rhetoric.join(','));
+
+            if (!params.get('title')) {
+                alert('請務必填寫作文題目！');
+                return;
+            }
+
+            window.location.href = `student_tool.html?${params.toString()}`;
+        });
+    </script>
+</body>
+</html>
