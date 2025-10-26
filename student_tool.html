@@ -3,38 +3,1567 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Composition Tool</title>
-    <link rel="stylesheet" href="style.css">
+    <title>AI寫作及批改平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <!-- 引入 OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
+    <!-- 引入 Tesseract.js -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f7fafc;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 1.5rem;
+        }
+        .button-primary {
+            background-color: #4f46e5;
+            color: white;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color: 0.3s;
+        }
+        .button-primary:hover {
+            background-color: #4338ca;
+        }
+        /* Red button for evaluation */
+        .button-secondary {
+             background-color: #ef4444; /* red-500 */
+             color: white;
+             font-weight: bold;
+             padding: 0.5rem 1rem;
+             border-radius: 0.5rem;
+             transition: background-color: 0.3s;
+        }
+        .button-secondary:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+        /* Green button for generating examples */
+        .button-generate {
+             background-color: #10b981;
+             color: white;
+             font-weight: bold;
+             padding: 0.5rem 1rem;
+             border-radius: 0.5rem;
+             transition: background-color: 0.3s;
+        }
+        .button-generate:hover {
+            background-color: #059669;
+        }
+        .output-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 50px;
+            white-space: pre-line;
+        }
+        .skeleton-loader {
+            width: 100%;
+            height: 60px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0f0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 0.5rem;
+            animation: skeleton-loading 1.5s infinite;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .output-box strong {
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .paragraph-guidance {
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            background-color: #eef2ff;
+            border-radius: 0.5rem;
+            color: #4338ca;
+            font-size: 0.875rem;
+        }
+        .paragraph-guidance h4 {
+            font-weight: bold;
+            color: #3730a3;
+        }
+        /* Styles for the feedback table */
+        .output-box table {
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .wavy-underline {
+            text-decoration: underline wavy #ef4444;
+        }
+        .icon-button {
+            background-color: #e0e7ff;
+            color: #4338ca;
+            border-radius: 9999px;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color: 0.2s;
+        }
+        .icon-button:hover {
+            background-color: #c7d2fe;
+        }
+        .icon-button.is-listening {
+             background-color: #ef4444;
+             color: white;
+        }
+        #loading-overlay {
+            transition: opacity 0.3s;
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <header id="composition-header">
-            <h1 id="comp-title"></h1>
-            <div id="comp-details" class="details-bar"></div>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 id="comp-title" class="text-4xl font-extrabold text-gray-800">作文題目載入中...</h1>
+            <div id="comp-details" class="flex justify-center gap-x-4 text-gray-500 mt-2">
+                <!-- 作文詳細資訊會動態載入這裡 -->
+            </div>
         </header>
 
+        <!-- 主要功能區 -->
         <main>
-            <section class="card">
-                <h2>段落開頭建議</h2>
-                <p>根據老師設定的結構，這裡提供四個段落的開頭第一句話當作參考：</p>
-                <div id="paragraph-starters">
-                    <div class="skeleton-loader"></div>
+             <div class="relative mb-8">
+                <span style="background-color: #f7fafc;" class="absolute -top-4 left-4 text-blue-600 text-lg font-bold px-2 z-10">寫作引導</span>
+                <div class="border-2 border-blue-600 rounded-lg p-2">
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <h2 class="text-xl font-bold mb-2">小作家你好：「有了作文大綱，寫作就有了方向！」</h2>
+                        <p class="text-gray-600 mb-4">根據老師設定的作文文體和作文結構，提供作文大綱說明，一起來沉浸式寫作吧！</p>
+                        <div class="grid grid-cols-1 gap-4">
+                            <button id="generate-paragraph-btn" class="button-primary w-full">產生作文大綱</button>
+                        </div>
+                        <div id="outline-content" class="output-box mt-4">
+                            點擊上方按鈕來生成寫作大綱。
+                        </div>
+                    </div>
                 </div>
-            </section>
+            </div>
 
-            <h2>寫作指導</h2>
-            <div id="guidance-columns" class="grid-container">
-                </div>
+            <div id="guidance-columns">
+                <!-- 建議詞彙、句型、修辭會動態載入這裡 -->
+            </div>
             
-            <h2>完整範文參考</h2>
-             <section class="card" id="full-composition-section">
-                <p>點擊按鈕，讓 AI 根據以上所有設定，生成一篇完整的範文。</p>
-                <button id="generate-full-comp-btn" class="button-primary">生成完整範文</button>
-                <div id="full-composition-output" class="output-box"></div>
-            </section>
+            <div class="relative mb-8">
+                <span style="background-color: #f7fafc;" class="absolute -top-4 left-4 text-blue-600 text-lg font-bold px-2 z-10">寫作批改</span>
+                <div class="border-2 border-blue-600 rounded-lg p-2">
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h2 class="text-xl font-bold mb-2">小作家你好：「現在可以參考作文大綱，開始寫作囉！」</h2>
+                                <p class="text-gray-600">每段作文寫完批改後，可以依照建議修改再次批改，作文能力馬上增強！</p>
+                            </div>
+                            <span id="word-counter" class="text-gray-600 font-medium">總字數：0 / 0</span>
+                        </div>
+                        <button id="populate-writing-area-btn" class="button-primary w-full my-4">產生各段作文大綱和引導提問</button>
+                        <div id="writing-section" class="mt-4 space-y-4">
+                            <!-- 四個段落的寫作區塊 -->
+                            <div id="p1-block" class="card bg-white">
+                                <h3 class="text-lg font-bold text-gray-700 mb-4">第一段寫作區</h3>
+                                <div id="paragraph-1-guidance"></div>
+                                <textarea id="paragraph-1-input" class="w-full h-32 p-2 border rounded-md writing-textarea" placeholder="第一段..."></textarea>
+                                <div class="flex justify-between items-center mt-2">
+                                    <div class="flex items-center gap-2">
+                                        <button title="語音輸入" data-paragraph="1" class="icon-button voice-input-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M8 8a3 3 0 0 0 3-3V3a3 3 0 0 0-6 0v2a3 3 0 0 0 3 3z"/></svg>
+                                        </button>
+                                        <button title="上傳檔案" data-paragraph="1" class="icon-button file-upload-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8.5 11.5a.5.5 0 0 1-1 0V7.707L6.354 8.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 7.707V11.5z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 1a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V1.5A.5.5 0 0 1 5 1h4.5z"/></svg>
+                                        </button>
+                                    </div>
+                                    <button data-paragraph="1" class="button-secondary !w-auto text-sm">批改第一段</button>
+                                </div>
+                                <h4 class="text-md font-bold text-gray-700 mt-6 mb-2">第一段批改結果區</h4>
+                                <div id="paragraph-1-feedback" class="output-box mt-0"></div>
+                            </div>
+                             <div id="p2-block" class="card bg-white">
+                                <h3 class="text-lg font-bold text-gray-700 mb-4">第二段寫作區</h3>
+                                <div id="paragraph-2-guidance"></div>
+                                <textarea id="paragraph-2-input" class="w-full h-32 p-2 border rounded-md writing-textarea" placeholder="第二段..."></textarea>
+                                 <div class="flex justify-between items-center mt-2">
+                                     <div class="flex items-center gap-2">
+                                        <button title="語音輸入" data-paragraph="2" class="icon-button voice-input-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M8 8a3 3 0 0 0 3-3V3a3 3 0 0 0-6 0v2a3 3 0 0 0 3 3z"/></svg>
+                                        </button>
+                                        <button title="上傳檔案" data-paragraph="2" class="icon-button file-upload-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8.5 11.5a.5.5 0 0 1-1 0V7.707L6.354 8.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 7.707V11.5z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 1a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V1.5A.5.5 0 0 1 5 1h4.5z"/></svg>
+                                        </button>
+                                    </div>
+                                     <button data-paragraph="2" class="button-secondary !w-auto text-sm">批改第二段</button>
+                                </div>
+                                <h4 class="text-md font-bold text-gray-700 mt-6 mb-2">第二段批改結果區</h4>
+                                <div id="paragraph-2-feedback" class="output-box mt-0"></div>
+                            </div>
+                             <div id="p3-block" class="card bg-white">
+                                <h3 class="text-lg font-bold text-gray-700 mb-4">第三段寫作區</h3>
+                                <div id="paragraph-3-guidance"></div>
+                                <textarea id="paragraph-3-input" class="w-full h-32 p-2 border rounded-md writing-textarea" placeholder="第三段..."></textarea>
+                                 <div class="flex justify-between items-center mt-2">
+                                     <div class="flex items-center gap-2">
+                                        <button title="語音輸入" data-paragraph="3" class="icon-button voice-input-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M8 8a3 3 0 0 0 3-3V3a3 3 0 0 0-6 0v2a3 3 0 0 0 3 3z"/></svg>
+                                        </button>
+                                        <button title="上傳檔案" data-paragraph="3" class="icon-button file-upload-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8.5 11.5a.5.5 0 0 1-1 0V7.707L6.354 8.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 7.707V11.5z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 1a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V1.5A.5.5 0 0 1 5 1h4.5z"/></svg>
+                                        </button>
+                                    </div>
+                                    <button data-paragraph="3" class="button-secondary !w-auto text-sm">批改第三段</button>
+                                </div>
+                                <h4 class="text-md font-bold text-gray-700 mt-6 mb-2">第三段批改結果區</h4>
+                                <div id="paragraph-3-feedback" class="output-box mt-0"></div>
+                            </div>
+                             <div id="p4-block" class="card bg-white">
+                                <h3 class="text-lg font-bold text-gray-700 mb-4">第四段寫作區</h3>
+                                <div id="paragraph-4-guidance"></div>
+                                <textarea id="paragraph-4-input" class="w-full h-32 p-2 border rounded-md writing-textarea" placeholder="第四段..."></textarea>
+                                 <div class="flex justify-between items-center mt-2">
+                                     <div class="flex items-center gap-2">
+                                        <button title="語音輸入" data-paragraph="4" class="icon-button voice-input-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M8 8a3 3 0 0 0 3-3V3a3 3 0 0 0-6 0v2a3 3 0 0 0 3 3z"/></svg>
+                                        </button>
+                                        <button title="上傳檔案" data-paragraph="4" class="icon-button file-upload-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8.5 11.5a.5.5 0 0 1-1 0V7.707L6.354 8.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 7.707V11.5z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 1a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V1.5A.5.5 0 0 1 5 1h4.5z"/></svg>
+                                        </button>
+                                    </div>
+                                    <button data-paragraph="4" class="button-secondary !w-auto text-sm">批改第四段</button>
+                                </div>
+                                <h4 class="text-md font-bold text-gray-700 mt-6 mb-2">第四段批改結果區</h4>
+                                <div id="paragraph-4-feedback" class="output-box mt-0"></div>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-8">
+                            <p class="text-xl font-bold mb-4">小作家完成整篇文章了嗎？</p>
+                            <div class="text-left my-6 bg-white p-6 rounded-lg border">
+                                <h4 class="font-semibold text-gray-800 mb-4 text-center">批改前自我檢核</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-y-2 gap-x-4">
+                                    <div class="flex items-center">
+                                        <input id="check1" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check1" class="ml-3 block text-sm text-gray-900">每個段落都有完成了嗎?</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="check2" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check2" class="ml-3 block text-sm text-gray-900">標點符號有正確使用嗎?</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="check3" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check3" class="ml-3 block text-sm text-gray-900">注音國字有正確使用嗎?</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="check4" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check4" class="ml-3 block text-sm text-gray-900">建議詞彙有盡量使用嗎?</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="check5" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check5" class="ml-3 block text-sm text-gray-900">建議句型有盡量使用嗎?</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="check6" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                        <label for="check6" class="ml-3 block text-sm text-gray-900">建議修辭有盡量使用嗎?</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="evaluate-full-essay-btn" class="button-secondary w-full">批改全文</button>
+                            <div id="full-essay-feedback" class="output-box mt-4 text-left"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card text-center bg-green-50">
+                <h2 class="text-xl font-bold mb-4">需要一點靈感嗎？</h2>
+                <button id="generate-full-comp-btn" class="button-primary">產生範文</button>
+                <div id="full-composition-output" class="output-box mt-4 text-left"></div>
+            </div>
+
+            <div class="card text-center bg-gray-100">
+                <h2 class="text-xl font-bold mb-4">下載學習歷程</h2>
+                <p class="text-gray-600 mb-4">請輸入您的班級座號，以便為您的檔案命名。</p>
+                <input type="text" id="seat-number-input" class="w-full md:w-1/2 mx-auto p-2 border rounded-md text-center" placeholder="輸入四位數班級座號(例如：四年五班1號，輸入：4501)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <button id="download-guidance-btn" class="button-primary w-full bg-purple-600 hover:bg-purple-700">下載引導單 (文字檔)</button>
+                    <button id="download-history-btn" class="button-primary w-full bg-teal-600 hover:bg-teal-700">下載寫作歷程及評分檔案(文字檔)</button>
+                </div>
+            </div>
         </main>
     </div>
+    
+    <!-- Hidden file input -->
+    <input type="file" id="file-uploader" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg">
 
-    <script src="script.js"></script>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 z-50 flex items-center justify-center">
+      <div class="text-white text-xl text-center">
+        <div class="mb-4 text-4xl animate-spin">⏳</div>
+        <p id="loading-status">正在載入...</p>
+      </div>
+    </div>
+
+    <!-- Radar Chart Modal -->
+    <div id="radar-chart-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+      <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+          <h3 id="radar-chart-title" class="text-lg leading-6 font-medium text-gray-900">寫作能力雷達圖</h3>
+          <div class="mt-2 px-7 py-3">
+            <canvas id="radar-chart-canvas"></canvas>
+          </div>
+          <div class="items-center px-4 py-3">
+            <button id="close-modal-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+              關閉
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <script>
+        let cvReady = false;
+        function onOpenCvReady() {
+            cvReady = true;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            let previousScores = {}; // To store scores for comparison
+            let previousFullEssayScores = null; // To store full essay scores for comparison
+            let radarChartInstance = null; // To hold the chart instance
+            let radarChartDatasets = {}; // To store datasets for each paragraph
+            let activeParagraphForUpload = null; // To track which textarea to fill after upload
+            let guidanceWordsData = null; 
+            let exampleSentencesData = {};
+            let paragraphHistory = { 1: [], 2: [], 3: [], 4: [] };
+            let fullEssayHistory = [];
+
+            const chartColors = [
+                { border: 'rgb(255, 205, 86)', bg: 'rgba(255, 205, 86, 0.2)' }, // Yellow
+                { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.2)' }, // Green
+                { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.2)' }, // Red
+                { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.2)' }  // Blue
+            ];
+            
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingStatus = document.getElementById('loading-status');
+
+            function showLoading(message) {
+                loadingStatus.textContent = message;
+                loadingOverlay.classList.remove('hidden');
+            }
+
+            function hideLoading() {
+                loadingOverlay.classList.add('hidden');
+            }
+
+
+            // --- 1. GET PARAMETERS & API KEY ---
+            const params = new URLSearchParams(window.location.search);
+            const config = {
+                title: params.get('title') || "我最喜歡的角落",
+                level: params.get('level') || "四年級",
+                wordCount: params.get('wordCount') || "400字",
+                style: params.get('style') || "記敘文",
+                structure: params.get('structure') || "總分總",
+                conjunctions: params.get('conjunctions')?.split(',') || ['因為...所以...', '不但...而且...', '只要...就...'],
+                rhetoric: params.get('rhetoric')?.split(',') || ['譬喻', '排比']
+            };
+            const apiKey = sessionStorage.getItem('geminiApiKey') || ""; 
+
+            if (!config.title) {
+                document.body.innerHTML = '<h1 class="text-red-500 text-center text-xl p-8">錯誤：缺少作文題目。請返回上一頁重新設定。</h1>';
+                return;
+            }
+
+            // --- 2. SETUP THE GEMINI API CALL FUNCTION ---
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            async function callGemini(prompt, elementToUpdate) {
+                if (elementToUpdate) {
+                    elementToUpdate.innerHTML = '<div class="skeleton-loader"></div>';
+                }
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error.message || `API 請求失敗，狀態碼: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    let text = data.candidates[0].content.parts[0].text;
+                    text = text.replace(/```json\n?|```html\n?|\n?```/g, '').trim();
+                    if(elementToUpdate) {
+                       elementToUpdate.innerHTML = text;
+                    }
+                    return text;
+                } catch (error) {
+                    console.error('Gemini API Error:', error);
+                    if(elementToUpdate) {
+                       elementToUpdate.innerHTML = `<p style="color: red;">生成失敗：${error.message}</p>`;
+                    }
+                    return null;
+                }
+            }
+
+            // --- 3. DYNAMICALLY BUILD THE PAGE CONTENT ---
+            function buildPage(guidanceWords) {
+                document.getElementById('comp-title').textContent = config.title;
+                const detailsBar = document.getElementById('comp-details');
+                detailsBar.innerHTML = `
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">${config.level}</span>
+                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">${config.wordCount}</span>
+                    <span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm">${config.style}</span>
+                    <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm">${config.structure}</span>
+                `;
+                const guidanceContainer = document.getElementById('guidance-columns');
+
+                const guidanceMap = {
+                    phrases_vocab: { title: '語詞', options: guidanceWords?.phrases_vocab },
+                    phrases_idioms: { title: '成語', options: guidanceWords?.phrases_idioms },
+                    phrases_quotes: { title: '名言佳句', options: guidanceWords?.phrases_quotes },
+                    conjunctions: { title: '建議句型', options: config.conjunctions },
+                    rhetoric: { title: '建議修辭', options: config.rhetoric }
+                };
+                
+                guidanceContainer.innerHTML = '';
+                
+                const treasureBoxWrapper = document.createElement('div');
+                treasureBoxWrapper.className = 'relative mb-8';
+                
+                treasureBoxWrapper.innerHTML = `<span style="background-color: #f7fafc;" class="absolute -top-4 left-4 text-blue-600 text-lg font-bold px-2 z-10">寫作百寶箱</span>`;
+                
+                const outerBox = document.createElement('div');
+                outerBox.className = 'border-2 border-blue-600 rounded-lg p-2';
+                
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'bg-blue-50 rounded-lg p-6 space-y-4';
+                
+                let hasContent = false;
+
+                for (const key in guidanceMap) {
+                    const item = guidanceMap[key];
+                    if (item.options && item.options.length > 0 && item.options[0]) {
+                        hasContent = true;
+                        const card = document.createElement('div');
+                        card.className = 'card bg-white'; 
+
+                        if (key === 'phrases_vocab' || key === 'phrases_idioms' || key === 'phrases_quotes') {
+                            let headerHTML = `<h3 class="font-bold text-lg mb-4">${item.title}</h3>`;
+                            let itemsHTML = '<div class="flex flex-wrap gap-2">';
+                            item.options.forEach(option => {
+                                itemsHTML += `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">${option}</span>`;
+                            });
+                            itemsHTML += '</div>';
+                            card.innerHTML = headerHTML + itemsHTML;
+                        } else { 
+                            const conjunctionMap = {
+                                '因為...所以...': '因果複句',
+                                '不但...而且...': '並列複句',
+                                '只要...就...': '條件複句',
+                                '如果...就...': '假設複句',
+                                '雖然...但是...': '轉折複句'
+                            };
+
+                            let headerHTML = `
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-bold text-lg">${item.title}</h3>
+                                    <button class="button-generate !w-auto !mt-0 flex-shrink-0" data-type="${key}">生成所有範例</button>
+                                </div>
+                            `;
+
+                            let itemsHTML = '<div class="space-y-4">';
+                            item.options.forEach((option, index) => {
+                                const displayText = key === 'conjunctions' ? (conjunctionMap[option] || option) : option;
+                                itemsHTML += `
+                                    <div class="grid md:grid-cols-8 gap-4 items-center">
+                                        <div class="md:col-span-1 text-gray-700 font-medium">${displayText}</div>
+                                        <div class="md:col-span-7 output-box !mt-0" id="${key}-${index}-output"></div>
+                                    </div>
+                                `;
+                            });
+                            itemsHTML += '</div>';
+                            card.innerHTML = headerHTML + itemsHTML;
+                        }
+                        contentWrapper.appendChild(card);
+                    }
+                }
+
+                if (hasContent) {
+                    outerBox.appendChild(contentWrapper);
+                    treasureBoxWrapper.appendChild(outerBox);
+                    guidanceContainer.appendChild(treasureBoxWrapper);
+                }
+            }
+            
+            // --- 4. DEFINE API PROMPTS AND TRIGGER FUNCTIONS ---
+            
+            async function generateGuidanceWords() {
+                showLoading('正在生成寫作建議...');
+                const prompt = `你是一位臺灣國小作文老師。請根據以下作文題目，為學生推薦適合的詞彙。
+        - 作文題目: "${config.title}"
+
+        請提供三種類別的建議，每個類別包含10個項目：
+        1.  **語詞**: 與題目場景、物品或感覺相關的描述性詞語。
+        2.  **成語**: 適合用於文章中的成語。
+        3.  **名言佳句**: 與主題相關的簡短名言佳句。
+
+        請嚴格依照以下的 JSON 格式輸出，不要有任何其他說明文字或 markdown 標籤。
+        {
+          "phrases_vocab": ["語詞一", "語詞二", "...", "語詞十"],
+          "phrases_idioms": ["成語一", "成語二", "...", "成語十"],
+          "phrases_quotes": ["名言佳句一", "名言佳句二", "...", "名言佳句十"]
+        }`;
+                try {
+                    const jsonText = await callGemini(prompt, null);
+                    if (jsonText) {
+                        return JSON.parse(jsonText);
+                    }
+                    return null;
+                } catch (error) {
+                    console.error("Failed to generate guidance words:", error);
+                    return { phrases_vocab: [], phrases_idioms: [], phrases_quotes: [] };
+                } finally {
+                    hideLoading();
+                }
+            }
+            
+            async function generateParagraphStarters(targetElement) {
+                const prompt = `你是一位臺灣國小作文老師。請根據以下設定，分四段簡單說明作文結構。
+- 作文題目: "${config.title}"
+- 學生年級: ${config.level}
+- 作文結構: ${config.structure}
+- 文體: ${config.style}
+請分四段簡單說明作文結構。重要：段落和段落之間只要空一行就好，請**不要**加入任何分隔線（例如 ---）或數字編號。`;
+                await callGemini(prompt, targetElement);
+            }
+            
+            const detailedOutlinePrompt = `你是一位臺灣國小作文老師。請根據以下設定，為一篇四段式作文產生一份詳細的寫作大綱。
+- 作文題目: "${config.title}"
+- 學生年級: ${config.level}
+- 作文結構: ${config.structure}
+- 文體: ${config.style}
+
+你的任務是為每一個段落提供：
+1. 一個段落標題。
+2. 一段口語化、好懂的寫作說明。
+3. 三個可以引導學生思考的提問。
+
+請完全依照以下的 JSON 格式輸出，不要有任何其他說明文字或 markdown 標籤。
+輸出的 JSON 必須是一個包含四個物件的陣列。每一個物件都必須包含以下三個鍵：
+1. "title": (字串) 段落標題。
+2. "explanation": (字串) 該段落的寫作說明。
+3. "questions": (字串陣列) 針對該段落的三個動腦提問。`;
+            
+            async function populateWritingAreaWithOutline() {
+                const tempDiv = document.createElement('div');
+                const jsonText = await callGemini(detailedOutlinePrompt, tempDiv); 
+
+                if (jsonText) {
+                    try {
+                        const outlineData = JSON.parse(jsonText);
+                        if (Array.isArray(outlineData) && outlineData.length === 4) {
+                            const paragraphPrefixes = ["第一段", "第二段", "第三段", "第四段"];
+                            outlineData.forEach((paragraph, index) => {
+                                const guidanceDiv = document.getElementById(`paragraph-${index + 1}-guidance`);
+                                if (guidanceDiv) {
+                                    let questionsHTML = '';
+                                    if (paragraph.questions && Array.isArray(paragraph.questions)) {
+                                        questionsHTML = `<ul class="list-disc list-inside mt-2 pl-2">${paragraph.questions.map(q => `<li>${q}</li>`).join('')}</ul>`;
+                                    }
+                                    guidanceDiv.innerHTML = `<div class="paragraph-guidance"><h4>${paragraphPrefixes[index]}：${paragraph.title}</h4><p>${paragraph.explanation}</p>${questionsHTML}</div>`;
+                                }
+                                const textarea = document.getElementById(`paragraph-${index + 1}-input`);
+                                if (textarea) {
+                                    textarea.value = ''; // Clear textarea
+                                }
+                            });
+                            updateWordCount();
+                        } else {
+                           throw new Error("API 回傳的資料格式不符。");
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse or populate detailed outline:", e);
+                        const feedbackBox = document.getElementById('paragraph-1-feedback');
+                        if(feedbackBox) {
+                            feedbackBox.innerHTML = `<p style="color: red;">產生段落建議失敗：${e.message}</p>`;
+                        }
+                    }
+                } else {
+                     const feedbackBox = document.getElementById('paragraph-1-feedback');
+                     if(feedbackBox) {
+                         feedbackBox.innerHTML = `<p style="color: red;">產生段落建議失敗，請再試一次。</p>`;
+                     }
+                }
+            }
+             async function generateExamples(type) {
+                const itemMap = {
+                    conjunctions: { title: '建議句型', options: config.conjunctions },
+                    rhetoric: { title: '建議修辭', options: config.rhetoric }
+                };
+                const item = itemMap[type];
+                if (!item || !item.options) return;
+
+                item.options.forEach((_, index) => {
+                    const outputBox = document.getElementById(`${type}-${index}-output`);
+                    if(outputBox) outputBox.innerHTML = '<div class="skeleton-loader !h-12"></div>';
+                });
+
+                const highlightRule = (type === 'rhetoric')
+                    ? `**重要規則：** 在你產生的範例句中，請只用 <strong> 和 </strong> 標籤將**構成該修辭的關鍵語詞**包起來。例如，對於「譬喻」修辞，若句子是「書本是我的好朋友」，你應該只標示構成譬喻的部分，回傳「書本<strong>是我的好朋友</strong>」。對於「排比」，若句子是「我喜歡角落的安靜，喜歡角落的隱密，喜歡角落的安全感」，你應該回傳「我<strong>喜歡角落的安靜，喜歡角落的隱密，喜歡角落的安全感</strong>」。`
+                    : `**重要規則：** 在你產生的範例句中，請只用 <strong> 和 </strong> 標籤將作為關聯詞的「項目」本身包起來。例如，對於「因為...所以...」，若句子是「因為今天下雨，所以我沒有去公園」，你應該回傳「<strong>因為</strong>今天下雨，<strong>所以</strong>我沒有去公園」。`;
+
+                const prompt = `你是一位台灣國小作文老師，正在為${config.level}的學生說明寫作。
+- 作文題目: "${config.title}"
+- 我需要你針對「${item.title}」這個類別，為以下的「項目列表」中的**每一個項目**，都產生一個簡單清楚的範例句子。
+- 項目列表: ${item.options.join('、')}
+- 句子內容請盡量與作文題目有關。
+- ${highlightRule}
+- **重要**: 你的回覆中，範例句子的內容**不可以**再重複「項目」本身的文字。例如，項目是「因為...所以...」，你的範例句就直接是「<strong>因為</strong>...<strong>所以</strong>...」，而不是「因為...所以...：<strong>因為</strong>...<strong>所以</strong>...」。
+- 請嚴格依照以下的 JSON 格式輸出，key 是項目，value 是帶有 <strong> 標籤的範例句。不要有任何其他說明文字或 markdown 標籤。
+範例格式:
+{
+  "${item.options[0]}": "範例句...",
+  "${item.options[1]}": "範例句..."
+}`;
+                
+                const jsonText = await callGemini(prompt, null);
+
+                if (jsonText) {
+                    try {
+                        const examples = JSON.parse(jsonText);
+                        item.options.forEach((option, index) => {
+                            const outputBox = document.getElementById(`${type}-${index}-output`);
+                            if (outputBox) {
+                                outputBox.innerHTML = examples[option] || '<span class="text-red-500">無法生成此項目的範例。</span>';
+                                // Store the example sentence
+                                if (!exampleSentencesData[type]) {
+                                    exampleSentencesData[type] = {};
+                                }
+                                if (examples[option]) {
+                                    exampleSentencesData[type][option] = examples[option].replace(/<[^>]*>?/gm, ''); // Store plain text
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Failed to parse examples JSON:", e);
+                        item.options.forEach((_, index) => {
+                            const outputBox = document.getElementById(`${type}-${index}-output`);
+                            if(outputBox) outputBox.innerHTML = `<p style="color: red;">生成範例失敗：資料格式錯誤。</p>`;
+                        });
+                    }
+                } else {
+                   item.options.forEach((_, index) => {
+                       const outputBox = document.getElementById(`${type}-${index}-output`);
+                       if(outputBox) outputBox.innerHTML = `<p style="color: red;">生成範例失敗，請再試一次。</p>`;
+                   });
+                }
+            }
+            
+            // --- UPDATED EVALUATION FUNCTION ---
+            async function evaluateParagraph(paragraphNum, paragraphText, guidanceText) {
+                const feedbackElement = document.getElementById(`paragraph-${paragraphNum}-feedback`);
+                if (!paragraphText.trim()) {
+                    feedbackElement.innerHTML = "請先輸入內容再進行評量。"; return;
+                }
+                
+                const currentText = document.getElementById(`paragraph-${paragraphNum}-input`).value;
+
+
+                // Check for previous scores and prepare the prompt additions
+                const lastScores = previousScores[paragraphNum];
+                let previousScoresPromptSection = "";
+                let scoreComparisonTask = "";
+                let tableHeader = `<th scope="col" class="px-4 py-2 whitespace-nowrap">級分 / 分數</th>`; // Default header
+                let tableExampleRow = `<td class="px-4 py-2 whitespace-nowrap">四級分 / 85</td>`; // Default example row cell
+
+                if (lastScores) {
+                    // If previous scores exist, build the part of the prompt that shows them
+                    previousScoresPromptSection = `
+### 上次評分紀錄:
+- 整體評分: ${lastScores['整體評分']}
+- 立意取材: ${lastScores['立意取材']}
+- 結構組織: ${lastScores['結構組織']}
+- 遣詞造句: ${lastScores['遣詞造句']}
+- 錯別字與標點: ${lastScores['錯別字與標點']}
+`;
+                    // Add a task for the AI to perform the comparison
+                    scoreComparisonTask = `
+- **重要**: 因為有提供「上次評分紀錄」，請在新的評分表格中增加「進步 / 退步」欄位，並計算新舊分數的差異（例如：+5, -3, ±0）。`;
+                    
+                    // Update the table header and example row for the prompt's example
+                    tableHeader = `<th scope="col" class="px-4 py-2 whitespace-nowrap">級分 / 分數</th>
+            <th scope="col" class="px-4 py-2 whitespace-nowrap">進步 / 退步</th>`;
+                    tableExampleRow = `<td class="px-4 py-2 whitespace-nowrap">五級分 / 90</td>
+            <td class="px-4 py-2 whitespace-nowrap">+5</td>`;
+                }
+
+                const prompt = `你是一位非常有耐心、親切且善于鼓勵的台灣國小作文老師。你的任務是根據「段落大綱提示」，批改學生寫的單一段落。請用超級口語化、活潑且符合學生年級的語氣，提供簡短、清楚、易讀且具體的回饋。
+
+### 作文整體設定:
+- 作文題目: "${config.title}"
+- 學生年級: ${config.level}
+- 文體: ${config.style}
+
+### 第 ${paragraphNum} 段的大綱提示:
+\`\`\`
+${guidanceText}
+\`\`\`
+
+### 學生寫的段落內容:
+\`\`\`
+${paragraphText}
+\`\`\`
+${previousScoresPromptSection}
+### 你的任務:
+請根據大綱提示，檢查學生的內容是否符合要求，並完全依照以下的格式和語氣提供回饋。請務必使用繁體中文和表情符號。
+${scoreComparisonTask}
+- **評分標準**: 「級分」請參考台灣國中會考的六級分制（一級分至六級分），六級分為最高分。「分數」為 0-100 分。
+- **重要**: 請在你的回覆最後，加上一個包含分數的 JSON 物件，並用 HTML 註解包起來，格式如下：\\\`<!-- SCORES_JSON: {"整體評分": 85, "立意取材": 88, "結構組織": 92, "遣詞造句": 82, "錯別字與標點": 95} -->\\\`。JSON 中的分數必須是數字。
+- **紅筆批改**: 在「可以加強的地方」和「老師的具體建議」中，若有需要學生修改的文字，請用 \`<span class="text-red-600 font-semibold">\` 和 \`</span>\` 標籤將其包覆起來，模擬老師用紅筆劃記的效果。在「小作家寫作優點」中，如果你要引用學生寫得很好的句子，請用 \`<span class="wavy-underline">\` 和 \`</span>\` 標籤將其包覆起來，模擬老師用紅筆畫波浪線稱讚的效果。
+- **格式天條 (絕對禁止違反)**: 你的回覆中，**絕對不可以**包含任何 Markdown 語法，例如 "#"、"*" 或 "-"。所有條列式項目都**必須**以「・」開頭。標題（例如：✍️ 老師來批改囉！）後面請直接換行，不要有任何多餘的符號。
+
+### 輸出格式 (請嚴格遵守所有細節):
+
+✍️ 老師立即來批改！
+
+評語：
+[在這裡寫一句總結性的評語，就像在跟小朋友聊天一樣。]
+
+[請在這裡生成一個 HTML 表格來呈現評分結果。請直接輸出 HTML 原始碼，不要用 markdown 包起來。]
+**表格 HTML 範例 (請模仿此結構與 class):**
+\`\`\`html
+<table class="w-full text-sm text-left text-gray-500">
+    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+        <tr>
+            <th scope="col" class="px-4 py-2 rounded-tl-lg whitespace-nowrap">評分項目</th>
+            ${tableHeader}
+            <th scope="col" class="px-4 py-2 rounded-tr-lg">老師悄悄話</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="bg-white border-b font-bold text-indigo-700">
+            <td class="px-4 py-2 whitespace-nowrap">整體評分</td>
+            ${tableExampleRow}
+            <td class="px-4 py-2">很不錯的開始，我們一起讓它變更棒！</td>
+        </tr>
+        <tr class="bg-gray-50 border-b">
+            <td class="px-4 py-2 whitespace-nowrap">立意取材</td>
+            ${tableExampleRow.replace('五級分 / 90', '四級分 / 88').replace('+5', '+2')}
+            <td class="px-4 py-2">內容很棒，有符合大綱的方向喔！</td>
+        </tr>
+        <tr class="bg-white border-b">
+            <td class="px-4 py-2 whitespace-nowrap">結構組織</td>
+             ${tableExampleRow.replace('五級分 / 90', '五級分 / 92').replace('+5', '+4')}
+            <td class="px-4 py-2">句子之間的連接很順暢！</td>
+        </tr>
+        <tr class="bg-gray-50 border-b">
+            <td class="px-4 py-2 whitespace-nowrap">遣詞造句</td>
+             ${tableExampleRow.replace('五級分 / 90', '四級分 / 82').replace('+5', '-3')}
+            <td class="px-4 py-2">詞語可以用得更生動一點喔！</td>
+        </tr>
+        <tr class="bg-white">
+            <td class="px-4 py-2 rounded-bl-lg whitespace-nowrap">錯別字與標點</td>
+             ${tableExampleRow.replace('五級分 / 90', '六級分 / 95').replace('+5', '±0')}
+            <td class="px-4 py-2 rounded-br-lg">哇，都沒有錯字，太厲害了！</td>
+        </tr>
+    </tbody>
+</table>
+\`\`\`
+
+👍 小作家寫作優點：
+・[請用「・」開頭的條列式說明。範例：・你寫的「<span class="wavy-underline">太陽公公露出了溫暖的笑臉</span>」這句，用得真好！]
+
+💪 可以加強的地方：
+・[請用「・」開頭的條列式說明。範例：・我們原本的大綱是希望你先寫出<span class="text-red-600 font-semibold">「吃到嘴巴裡的味道」</span>，但你先寫了「為什麼會吃到」，順序有點不一樣。]
+
+💡 老師的具體建議：
+・[請用「・」開頭的條列式提供建議。範例：・你可以試著回答：<span class="text-red-600 font-semibold">第一口咬下去的聲音是什麼？</span>]
+
+👉 開頭句子這樣寫：
+・[請用「・」開頭的條列式提供適合的開頭句子。]
+`;
+                // We handle the response manually to parse the scores
+                feedbackElement.innerHTML = '<div class="skeleton-loader"></div>';
+                const responseText = await callGemini(prompt, null);
+
+                if (responseText) {
+                    // 1. Extract and store scores
+                    const scoreMatch = responseText.match(/<!-- SCORES_JSON: (.*) -->/);
+                    if (scoreMatch && scoreMatch[1]) {
+                        try {
+                            const newScores = JSON.parse(scoreMatch[1]);
+                            previousScores[paragraphNum] = newScores;
+                            
+                            // 2. Clean the response before displaying
+                            const cleanedText = responseText.replace(/<!-- SCORES_JSON: .* -->/, '').trim();
+                            feedbackElement.innerHTML = cleanedText;
+
+                            // 3. Store history
+                            paragraphHistory[paragraphNum].push({ text: currentText, feedback: cleanedText });
+                            
+                            // 4. Display the radar chart
+                            displayRadarChart(newScores, paragraphNum);
+
+                        } catch (e) {
+                            console.error("Failed to parse scores JSON from AI response:", e);
+                            // On failure, display the raw response but clean the comment if possible
+                            feedbackElement.innerHTML = responseText.replace(/<!-- SCORES_JSON: .* -->/, '').trim();
+                        }
+                    } else {
+                         // If no scores JSON found, just display the text as is
+                         feedbackElement.innerHTML = responseText;
+                         // Store history even if parsing fails
+                         paragraphHistory[paragraphNum].push({ text: currentText, feedback: responseText });
+                    }
+                } else {
+                    // Handle case where callGemini returned null
+                    feedbackElement.innerHTML = `<p style="color: red;">生成評分失敗，請再試一次。</p>`;
+                }
+            }
+            
+            function displayRadarChart(scores, id) {
+                const modal = document.getElementById('radar-chart-modal');
+                const canvas = document.getElementById('radar-chart-canvas');
+                const ctx = canvas.getContext('2d');
+                const modalTitle = document.getElementById('radar-chart-title');
+                
+                const chineseNumerals = ['一', '二', '三', '四'];
+                const titleText = (typeof id === 'string' && id.toLowerCase() === '全文')
+                    ? '全文寫作能力雷達圖'
+                    : `第 ${chineseNumerals[id - 1]} 段 寫作能力雷達圖`;
+                modalTitle.textContent = titleText;
+
+                // Initialize dataset array for this id if it doesn't exist
+                if (!radarChartDatasets[id]) {
+                    radarChartDatasets[id] = [];
+                }
+                
+                const datasetIndex = radarChartDatasets[id].length;
+                const color = chartColors[datasetIndex % chartColors.length];
+
+                const labels = ['立意取材', '結構組織', '遣詞造句', '錯別字與標點'];
+                const dataPoints = [
+                    scores['立意取材'] || 0,
+                    scores['結構組織'] || 0,
+                    scores['遣詞造句'] || 0,
+                    scores['錯別字與標點'] || 0,
+                ];
+                
+                // Create the new dataset
+                const newDataset = {
+                    label: `第 ${datasetIndex + 1} 次批改`,
+                    data: dataPoints,
+                    fill: true,
+                    backgroundColor: color.bg,
+                    borderColor: color.border,
+                    pointBackgroundColor: color.border,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: color.border
+                };
+                
+                // Add the new dataset to the list for this id
+                radarChartDatasets[id].push(newDataset);
+
+                // Destroy the old chart instance if it exists
+                if (radarChartInstance) {
+                    radarChartInstance.destroy();
+                }
+
+                // Create a new chart with all the datasets for the current id
+                radarChartInstance = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: labels,
+                        datasets: radarChartDatasets[id] // Use the array of datasets
+                    },
+                    options: {
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                align: 'center',
+                                labels: {
+                                    boxWidth: 15,
+                                    padding: 20,
+                                }
+                            }
+                        },
+                        elements: {
+                            line: {
+                                borderWidth: 3
+                            }
+                        },
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    display: true
+                                },
+                                min: 50,
+                                max: 100,
+                                pointLabels: {
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                modal.classList.remove('hidden');
+            }
+
+
+            async function generateFullComposition() {
+                let allSuggestions = [];
+                if (guidanceWordsData?.phrases_vocab) allSuggestions.push(...guidanceWordsData.phrases_vocab);
+                if (guidanceWordsData?.phrases_idioms) allSuggestions.push(...guidanceWordsData.phrases_idioms);
+                if (guidanceWordsData?.phrases_quotes) allSuggestions.push(...guidanceWordsData.phrases_quotes);
+                if (config.conjunctions) allSuggestions.push(...config.conjunctions);
+                if (config.rhetoric) allSuggestions.push(...config.rhetoric);
+
+                const prompt = `你是一位優秀的作家，請為一位台灣的${config.level}學生，根據以下所有要求，寫一篇流暢且完整的作文。
+
+### 作文要求:
+- **作文題目**: "${config.title}"
+- **字數要求**: 接近 ${config.wordCount.match(/\d+/)[0]} 字，但不要超過。
+- **文體**: ${config.style}
+- **結構**: ${config.structure}
+- **融入詞彙**: 請在文章中盡量融入以下的建議詞語、成語或句型: ${allSuggestions.join('、')}
+
+### 輸出規則:
+1.  **格式**:
+    - 第一行是作文題目，請用 \`<h3 class="text-center text-2xl font-bold mb-4">${config.title}</h3>\` 格式輸出。
+    - 文章段落請用 \`<p>\` 標籤包覆，並在段落開頭加上兩個全形空格 \`　　\` 來縮排。
+2.  **標示重點**:
+    - 當你在文章中使用到任何來自上方「融入詞彙」列表中的詞彙時，請用 \`<span class="text-blue-600 font-semibold">\` 和 \`</span>\` 標籤將該詞語包起來。
+    - **請不要**使用任何其他的 HTML 標籤 (除了段落 <p> 和標示重點的 <span>) 或 Markdown 語法 (例如 \`**\`)。
+3.  **內容**:
+    - 內容需具體，用詞適合國小學生理解。
+    - 請直接開始寫作，不要有任何前言或結語。`;
+                await callGemini(prompt, document.getElementById('full-composition-output'));
+            }
+            
+            function cleanFeedbackForTxt(html) {
+                if (!html) return "尚未批改。";
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html.replace(/<!-- SCORES_JSON: .* -->/, '').trim();
+                // Try to format tables a bit better
+                tempDiv.querySelectorAll('table').forEach(table => {
+                    let tableText = "\n--- 評分表 ---\n";
+                    table.querySelectorAll('tr').forEach(row => {
+                        const cells = Array.from(row.querySelectorAll('th, td')).map(cell => cell.innerText.trim());
+                        tableText += cells.join("\t|\t") + "\n";
+                    });
+                    tableText += "---------------\n";
+                    table.replaceWith(document.createTextNode(tableText));
+                });
+                return tempDiv.innerText.trim();
+            }
+
+            function downloadHistoryFile() {
+                const seatNumber = document.getElementById('seat-number-input').value;
+                const filename = `${seatNumber || '0000'}_${config.title}_寫作歷程及評分.txt`;
+
+                let content = "作文引導單\n";
+                content += "========================================\n\n";
+
+                // 1. 作文題目與設定
+                content += "【作文題目】\n";
+                content += document.getElementById('comp-title').innerText + "\n\n";
+                content += "【作文設定】\n";
+                content += `年級：${config.level}\n`;
+                content += `字數：${config.wordCount}\n`;
+                content += `文體：${config.style}\n`;
+                content += `結構：${config.structure}\n\n`;
+
+                // 2. 寫作歷程
+                content += "========================================\n";
+                content += "【各段寫作歷程】\n";
+                content += "========================================\n\n";
+
+                const chineseNumerals = ['一', '二', '三', '四'];
+                for (let i = 1; i <= 4; i++) {
+                    content += `--- 第 ${chineseNumerals[i-1]} 段 ---\n\n`;
+                    const history = paragraphHistory[i];
+                    if (history.length === 0) {
+                        content += "本段尚未寫作或批改。\n\n";
+                    } else {
+                        history.forEach((entry, index) => {
+                            content += `[ 第 ${index + 1} 次寫作內容 ]\n`;
+                            content += entry.text + "\n\n";
+                            content += `[ 第 ${index + 1} 次批改結果 ]\n`;
+                            content += cleanFeedbackForTxt(entry.feedback) + "\n\n";
+                        });
+                    }
+                }
+                
+                // 3. 全文批改歷程
+                content += "========================================\n";
+                content += "【全文批改歷程】\n";
+                content += "========================================\n\n";
+
+                if (fullEssayHistory.length === 0) {
+                    content += "尚未進行全文批改。\n\n";
+                } else {
+                    fullEssayHistory.forEach((entry, index) => {
+                        content += `--- 第 ${index + 1} 次全文批改 ---\n\n`;
+                        content += "【學生內文】:\n" + entry.text + "\n\n";
+                        content += "【老師批改】:\n" + cleanFeedbackForTxt(entry.feedback) + "\n\n";
+                    });
+                }
+
+                // Create blob and download link
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            
+            function downloadGuidanceFile() {
+                if (!guidanceWordsData) {
+                    alert("請先等待寫作建議生成完畢！");
+                    return;
+                }
+
+                let content = "作文引導單\n";
+                content += "========================================\n\n";
+
+                // 1. 作文題目與設定
+                content += "【作文題目】\n";
+                content += document.getElementById('comp-title').innerText + "\n\n";
+                content += "【作文設定】\n";
+                content += `年級：${config.level}\n`;
+                content += `字數：${config.wordCount}\n`;
+                content += `文體：${config.style}\n`;
+                content += `結構：${config.structure}\n\n`;
+
+                // 2. 作文大綱
+                content += "========================================\n";
+                content += "【作文大綱】\n";
+                const outlineContent = document.getElementById('outline-content').innerText;
+                content += (outlineContent.trim() !== "點擊上方按鈕來生成寫作大綱。") ? outlineContent + "\n\n" : "尚未生成大綱。\n\n";
+                
+                // 3. 各段寫作提示
+                content += "========================================\n";
+                content += "【各段寫作提示】\n";
+                let detailedGuidanceContent = '';
+                let hasDetailedGuidance = false;
+                for (let i = 1; i <= 4; i++) {
+                    const guidanceElement = document.getElementById(`paragraph-${i}-guidance`);
+                    if (guidanceElement && guidanceElement.innerText.trim() !== '') {
+                        detailedGuidanceContent += guidanceElement.innerText + '\n\n';
+                        hasDetailedGuidance = true;
+                    }
+                }
+                content += hasDetailedGuidance ? detailedGuidanceContent : "尚未生成各段引導提問。\n\n";
+
+
+                // 4. 寫作百寶箱
+                content += "========================================\n";
+                content += "【寫作百寶箱】\n\n";
+                
+                const guidanceMap = {
+                    phrases_vocab: { title: '語詞', options: guidanceWordsData?.phrases_vocab },
+                    phrases_idioms: { title: '成語', options: guidanceWordsData?.phrases_idioms },
+                    phrases_quotes: { title: '名言佳句', options: guidanceWordsData?.phrases_quotes },
+                    conjunctions: { title: '建議句型', options: config.conjunctions },
+                    rhetoric: { title: '建議修辭', options: config.rhetoric }
+                };
+
+                for (const key in guidanceMap) {
+                    const item = guidanceMap[key];
+                    if (item.options && item.options.length > 0 && item.options[0]) {
+                        content += `--- ${item.title} ---\n`;
+                        if (key === 'conjunctions' || key === 'rhetoric') {
+                             item.options.forEach(option => {
+                                 const example = exampleSentencesData[key]?.[option] || "尚未生成範例";
+                                 content += `${option}: ${example}\n`;
+                             });
+                             content += "\n";
+                        } else {
+                            content += item.options.join('、 ') + "\n\n";
+                        }
+                    }
+                }
+
+                // 5. 靈感範文
+                content += "========================================\n";
+                content += "【靈感範文】\n";
+                const fullCompContent = document.getElementById('full-composition-output').innerText;
+                content += (fullCompContent.trim() !== "") ? fullCompContent + "\n\n" : "尚未生成範文。\n\n";
+                
+                
+                content += "========================================\n";
+                content += "【我的作文】\n\n";
+                content += "第一段：\n\n\n\n";
+                content += "第二段：\n\n\n\n";
+                content += "第三段：\n\n\n\n";
+                content += "第四段：\n\n\n\n";
+
+                // Create blob and download link
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${config.title}_引導單.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+
+            // --- 5. WORD COUNTER LOGIC & INPUT HANDLING ---
+            const wordCountLimit = parseInt(config.wordCount.match(/\d+/)[0], 10);
+            const wordCounterElement = document.getElementById('word-counter');
+            const textareas = document.querySelectorAll('.writing-textarea');
+            function updateWordCount() {
+                let totalWords = 0;
+                textareas.forEach(textarea => { totalWords += textarea.value.length; });
+                wordCounterElement.textContent = `總字數：${totalWords} / ${wordCountLimit}`;
+                if (totalWords > wordCountLimit) {
+                    wordCounterElement.style.color = 'red';
+                    wordCounterElement.style.fontWeight = 'bold';
+                } else {
+                    wordCounterElement.style.color = '';
+                    wordCounterElement.style.fontWeight = '';
+                }
+            }
+
+            function handleVoiceInput(paragraphNum, button) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    alert("抱歉，您的瀏覽器不支援語音輸入功能。");
+                    return;
+                }
+
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'zh-TW';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                
+                const textarea = document.getElementById(`paragraph-${paragraphNum}-input`);
+
+                recognition.onstart = () => {
+                    button.classList.add('is-listening');
+                };
+
+                recognition.onend = () => {
+                    button.classList.remove('is-listening');
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error("語音辨識錯誤:", event.error);
+                    button.classList.remove('is-listening');
+                };
+
+                recognition.onresult = (event) => {
+                    const speechResult = event.results[0][0].transcript;
+                    textarea.value += speechResult;
+                    updateWordCount();
+                };
+
+                recognition.start();
+            }
+
+            async function handleFile(file) {
+                if (!file) return;
+                const textarea = document.getElementById(`paragraph-${activeParagraphForUpload}-input`);
+                if (!textarea) return;
+
+                const fileType = file.type;
+                const fileName = file.name.toLowerCase();
+
+                if (fileName.endsWith('.txt')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        textarea.value += e.target.result;
+                        updateWordCount();
+                    };
+                    reader.readAsText(file);
+                } else if (fileName.endsWith('.pdf')) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+                        const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
+                        let textContent = '';
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const text = await page.getTextContent();
+                            textContent += text.items.map(item => item.str).join(' ');
+                        }
+                        textarea.value += textContent;
+                        updateWordCount();
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else if (fileType.startsWith('image/')) {
+                    await processHandwritingImage(file, textarea);
+                } else {
+                    alert('不支援的檔案格式！請上傳 .txt, .pdf, 或圖片檔。');
+                }
+            }
+            
+            async function processHandwritingImage(file, textarea) {
+                if (!cvReady) {
+                    alert("辨識引擎尚未準備就緒，請稍後再試。");
+                    return;
+                }
+                showLoading('正在處理您的手寫圖片...');
+
+                try {
+                    const imageURL = URL.createObjectURL(file);
+                    const img = new Image();
+                    img.src = imageURL;
+                    
+                    await new Promise(resolve => {
+                        img.onload = resolve;
+                    });
+                    
+                    showLoading('步驟 1/3: 影像校正與強化...');
+                    let src = cv.imread(img);
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                    let blurred = new cv.Mat();
+                    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+                    let edged = new cv.Mat();
+                    cv.Canny(blurred, edged, 75, 200);
+
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(edged, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+                    
+                    // Sort contours by area and find the biggest one
+                    let sortedContours = [];
+                    for (let i = 0; i < contours.size(); ++i) {
+                        sortedContours.push({ contour: contours.get(i), area: cv.contourArea(contours.get(i)) });
+                    }
+                    sortedContours.sort((a, b) => b.area - a.area);
+
+                    let screen_cnt = null;
+                    for(let i = 0; i < Math.min(5, sortedContours.length); i++) {
+                        let peri = cv.arcLength(sortedContours[i].contour, true);
+                        let approx = new cv.Mat();
+                        cv.approxPolyDP(sortedContours[i].contour, approx, 0.02 * peri, true);
+                        if (approx.rows === 4) {
+                             screen_cnt = approx;
+                             break;
+                        }
+                        approx.delete();
+                    }
+
+                    let warped;
+                    if (screen_cnt === null) {
+                        console.log("Warning: 未能自動偵測到4個角點，將使用整張圖片進行後續處理。");
+                        warped = gray.clone(); // Use the original gray image if detection fails
+                    } else {
+                        // Perspective transform logic
+                        const pts = [];
+                        for (let i = 0; i < screen_cnt.rows; i++) {
+                            pts.push({ x: screen_cnt.data32S[i * 2], y: screen_cnt.data32S[i * 2 + 1] });
+                        }
+
+                        const rect = cv.minAreaRect(screen_cnt);
+                        const center = rect.center;
+
+                        // Sort points: tl, tr, br, bl
+                        pts.sort((a, b) => a.y - b.y);
+                        const top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
+                        const bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
+                        const [tl, tr] = top;
+                        const [bl, br] = bottom;
+
+                        const widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+                        const widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+                        const maxWidth = Math.max(widthA, widthB);
+
+                        const heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
+                        const heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
+                        const maxHeight = Math.max(heightA, heightB);
+
+                        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
+                        
+                        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        warped = new cv.Mat();
+                        cv.warpPerspective(src, warped, M, new cv.Size(maxWidth, maxHeight));
+                        cv.cvtColor(warped, warped, cv.COLOR_RGBA2GRAY);
+                        srcTri.delete();
+                        dstTri.delete();
+                        M.delete();
+                    }
+                    
+                    let enhanced = new cv.Mat();
+                    let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+                    clahe.apply(warped, enhanced);
+                    
+                    let binaryImage = new cv.Mat();
+                    cv.adaptiveThreshold(enhanced, binaryImage, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 10);
+                    
+                    // --- NEW STEP: Noise Removal using Morphological Operations ---
+                    let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                    let finalImage = new cv.Mat();
+                    cv.morphologyEx(binaryImage, finalImage, cv.MORPH_OPEN, kernel);
+
+
+                    // Create a canvas to pass to Tesseract.js
+                    const canvas = document.createElement('canvas');
+                    cv.imshow(canvas, finalImage);
+
+                    src.delete(); gray.delete(); blurred.delete(); edged.delete(); contours.delete(); hierarchy.delete();
+                    if(screen_cnt) screen_cnt.delete();
+                    warped.delete(); enhanced.delete(); binaryImage.delete(); finalImage.delete(); clahe.delete(); kernel.delete();
+
+                    showLoading('步驟 2/3: 載入文字辨識引擎...');
+                    const worker = await Tesseract.createWorker('chi_tra', 1, {
+                        logger: m => {
+                           if (m.status === 'recognizing text') {
+                               showLoading(`步驟 3/3: 正在辨識文字... (${(m.progress * 100).toFixed(0)}%)`);
+                           }
+                        },
+                    });
+                    
+                    const { data: { text } } = await worker.recognize(canvas);
+                    textarea.value += text;
+                    updateWordCount();
+                    await worker.terminate();
+                } catch (error) {
+                    console.error('手寫辨識失敗:', error);
+                    alert(`手寫辨識失敗: ${error.message}`);
+                } finally {
+                    hideLoading();
+                }
+            }
+
+
+            // --- 6. INITIALIZE THE PAGE AND ADD EVENT LISTENNERS ---
+            async function initializeApp() {
+                guidanceWordsData = await generateGuidanceWords();
+                buildPage(guidanceWordsData);
+
+                document.getElementById('generate-paragraph-btn').addEventListener('click', () => {
+                    generateParagraphStarters(document.getElementById('outline-content'));
+                });
+                document.getElementById('populate-writing-area-btn').addEventListener('click', populateWritingAreaWithOutline);
+                document.getElementById('download-guidance-btn').addEventListener('click', downloadGuidanceFile);
+                document.getElementById('download-history-btn').addEventListener('click', downloadHistoryFile);
+
+
+                document.getElementById('guidance-columns').addEventListener('click', (e) => {
+                    const button = e.target.closest('.button-generate');
+                    if (button && button.dataset.type) {
+                         generateExamples(button.dataset.type);
+                    }
+                });
+
+                document.getElementById('generate-full-comp-btn').addEventListener('click', generateFullComposition);
+                
+                document.getElementById('writing-section').addEventListener('click', (e) => {
+                    const button = e.target.closest('button');
+                    if (!button) return;
+
+                    const paragraphNum = button.dataset.paragraph;
+
+                    if (button.classList.contains('button-secondary')) { //批改按鈕
+                        const paragraphText = document.getElementById(`paragraph-${paragraphNum}-input`).value;
+                        const guidanceElement = document.getElementById(`paragraph-${paragraphNum}-guidance`);
+                        const guidanceText = guidanceElement ? guidanceElement.innerText : "沒有提供大綱提示";
+                        evaluateParagraph(paragraphNum, paragraphText, guidanceText);
+                    } else if (button.classList.contains('voice-input-btn')) { //語音輸入按鈕
+                         handleVoiceInput(paragraphNum, button);
+                    } else if (button.classList.contains('file-upload-btn')) { //上傳檔案按鈕
+                        activeParagraphForUpload = paragraphNum;
+                        document.getElementById('file-uploader').click();
+                    }
+                });
+
+                document.getElementById('evaluate-full-essay-btn').addEventListener('click', evaluateFullEssay);
+                
+                document.getElementById('file-uploader').addEventListener('change', (e) => {
+                    handleFile(e.target.files[0]);
+                    e.target.value = ''; // Reset file input
+                });
+                
+                textareas.forEach(textarea => {
+                    textarea.addEventListener('input', updateWordCount);
+                });
+                
+                const modal = document.getElementById('radar-chart-modal');
+                const closeModalBtn = document.getElementById('close-modal-btn');
+                const closeModal = () => modal.classList.add('hidden');
+                closeModalBtn.addEventListener('click', closeModal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+
+                updateWordCount();
+            }
+
+            async function evaluateFullEssay() {
+                const feedbackElement = document.getElementById('full-essay-feedback');
+                let fullText = "";
+                for(let i = 1; i <= 4; i++) {
+                    fullText += `【第${i}段】\n` + document.getElementById(`paragraph-${i}-input`).value + "\n\n";
+                }
+
+                if (fullText.trim().length < 10) { // Check if there is substantial text
+                    feedbackElement.innerHTML = "請先完成所有段落的寫作再進行全文批改。";
+                    return;
+                }
+
+                let previousScoresPromptSection = "";
+                let scoreComparisonTask = "";
+                let tableHeader = `<th scope="col" class="px-4 py-2 whitespace-nowrap">級分 / 分數</th>`;
+                let tableExampleRow = `<td class="px-4 py-2 whitespace-nowrap">五級分 / 90</td>`;
+
+                if (previousFullEssayScores) {
+                    previousScoresPromptSection = `
+### 上次全文評分紀錄:
+- 整體表現: ${previousFullEssayScores['整體評分']}
+- 立意取材: ${previousFullEssayScores['立意取材']}
+- 結構組織: ${previousFullEssayScores['結構組織']}
+- 遣詞造句: ${previousFullEssayScores['遣詞造句']}
+- 錯別字與標點: ${previousFullEssayScores['錯別字與標點']}
+`;
+                    scoreComparisonTask = `- **重要**: 因為有提供「上次評分紀錄」，請在新的評分表格中增加「進步 / 退步」欄位，並計算新舊分數的差異。`;
+                    tableHeader = `<th scope="col" class="px-4 py-2 whitespace-nowrap">級分 / 分數</th><th scope="col" class="px-4 py-2 whitespace-nowrap">進步 / 退步</th>`;
+                    tableExampleRow = `<td class="px-4 py-2 whitespace-nowrap">六級分 / 95</td><td class="px-4 py-2 whitespace-nowrap">+5</td>`;
+                }
+
+
+                const prompt = `你是一位非常有耐心、親切且善於鼓勵的台灣國小作文老師。你的任務是批改一篇完整的四段式作文。
+
+### 作文整體設定:
+- 作文題目: "${config.title}"
+- 學生年級: ${config.level}
+- 文體: ${config.style}
+- 作文結構: ${config.structure}
+
+### 學生寫的完整文章:
+\`\`\`
+${fullText}
+\`\`\`
+${previousScoresPromptSection}
+
+### 你的任務:
+請根據整篇文章的表現，提供一份總結性的批改報告。請務必使用繁體中文和鼓勵的語氣。
+${scoreComparisonTask}
+- **評分標準**: 請針對整篇文章的「立意取材」、「結構組織」、「遣詞造句」、「錯別字與標點」四個向度，以及「整體表現」給予評分。「級分」請參考台灣國中會考的六級分制，「分數」為 0-100 分。
+- **重要**: 請在你的回覆最後，加上一個包含分數的 JSON 物件，並用 HTML 註解包起來，格式如下：\\\`<!-- SCORES_JSON: {"整體評分": 88, "立意取材": 90, "結構組織": 85, "遣詞造句": 87, "錯別字與標點": 90} -->\\\`。
+- **紅筆標示**: 請找出文章中一兩個寫得**最棒的句子**，用 \`<span class="wavy-underline">\` 標籤包起來引用。同時，也找出需要修改的部分，用 \`<span class="text-red-600 font-semibold">\` 標籤包起來提出建議。
+- **格式天條 (絕對禁止違反)**: 你的回覆中，**絕對不可以**包含任何 Markdown 語法，例如 "#"、"*" 或 "-"。所有條列式項目都**必須**以「・」開頭。標題（例如：✍️ 作文總體檢報告）後面請直接換行，不要有任何多餘的符號。
+
+### 輸出格式 (請嚴格遵守所有細節):
+
+✍️ 整篇作文評分
+
+評語：
+[在這裡寫一句總結性、鼓勵學生的評語。]
+
+[請在這裡生成一個 HTML 表格來呈現**整篇文章**的總分。]
+**表格 HTML 範例:**
+\`\`\`html
+<table class="w-full text-sm text-left text-gray-500">
+    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+        <tr>
+            <th scope="col" class="px-4 py-2 rounded-tl-lg whitespace-nowrap">評分項目</th>
+            ${tableHeader}
+            <th scope="col" class="px-4 py-2 rounded-tr-lg">老師悄悄話</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="bg-white border-b font-bold text-indigo-700">
+            <td class="px-4 py-2 whitespace-nowrap">整體表現</td>
+            ${tableExampleRow}
+            <td class="px-4 py-2">這是一篇很棒的文章，繼續保持！</td>
+        </tr>
+        <tr class="bg-gray-50 border-b">
+            <td class="px-4 py-2 whitespace-nowrap">立意取材</td>
+            ${tableExampleRow.replace('六級分 / 95', '五級分 / 90').replace('+5', '+2')}
+            <td class="px-4 py-2">主題明確，內容也很充實。</td>
+        </tr>
+        <tr class="bg-white border-b">
+            <td class="px-4 py-2 whitespace-nowrap">結構組織</td>
+             ${tableExampleRow.replace('六級分 / 95', '四級分 / 85').replace('+5', '-2')}
+            <td class="px-4 py-2">段落分明，但段落之間的連結可以更流暢。</td>
+        </tr>
+        <tr class="bg-gray-50 border-b">
+            <td class="px-4 py-2 whitespace-nowrap">遣詞造句</td>
+             ${tableExampleRow.replace('六級分 / 95', '四級分 / 87').replace('+5', '±0')}
+            <td class="px-4 py-2">詞語運用得不錯，可以多嘗試一些變換。</td>
+        </tr>
+        <tr class="bg-white">
+            <td class="px-4 py-2 rounded-bl-lg whitespace-nowrap">錯別字與標點</td>
+             ${tableExampleRow.replace('六級分 / 95', '五級分 / 90').replace('+5', '+3')}
+            <td class="px-4 py-2 rounded-br-lg">幾乎沒有錯字，非常細心！</td>
+        </tr>
+    </tbody>
+</table>
+\`\`\`
+
+👍 小作家整篇作文優點：
+・[條列式說明優點]
+
+💪 未來可以更好的地方：
+・[條列式說明可以再進步的地方]
+`;
+
+                const responseText = await callGemini(prompt, feedbackElement);
+
+                if (responseText) {
+                    const scoreMatch = responseText.match(/<!-- SCORES_JSON: (.*) -->/);
+                    if (scoreMatch && scoreMatch[1]) {
+                        try {
+                            const newScores = JSON.parse(scoreMatch[1]);
+                            previousFullEssayScores = newScores;
+                            const cleanedText = responseText.replace(/<!-- SCORES_JSON: .* -->/, '').trim();
+                            feedbackElement.innerHTML = cleanedText;
+                            
+                            // 儲存全文批改歷程
+                            fullEssayHistory.push({ text: fullText, feedback: cleanedText });
+                            
+                            displayRadarChart(newScores, '全文');
+
+                        } catch (e) {
+                            console.error("Failed to parse scores JSON from AI response:", e);
+                            feedbackElement.innerHTML = responseText.replace(/<!-- SCORES_JSON: .* -->/, '').trim();
+                        }
+                    } else {
+                         feedbackElement.innerHTML = responseText;
+                         // 儲存沒有分數的歷程
+                         fullEssayHistory.push({ text: fullText, feedback: responseText });
+                    }
+                }
+            }
+
+
+            initializeApp();
+        });
+    </script>
 </body>
 </html>
+

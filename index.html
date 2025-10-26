@@ -3,17 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作文小幫手 - 教師設定</title>
+    <title>AI作文小幫手 - 教師設定</title>
+    
     <link rel="stylesheet" href="style.css">
-</head>
+
+    <style>
+        /* General Body and Container Styles (Assumed from style.css) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f9; color: #333; line-height: 1.6; margin: 0; padding: 20px;
+        }
+        .container {
+            max-width: 1000px; margin: 0 auto; background: #fff; padding: 25px 40px;
+            border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        h1 { font-size: 2em; text-align: center; margin-bottom: 20px; color: #0056b3; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input[type="text"], .form-group input[type="password"], .form-group select {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        .button-primary {
+            display: block; margin: 30px auto 0 auto; padding: 12px 25px; font-size: 1.05em;
+            background-color: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button-primary:hover { background-color: #0056b3; }
+
+        /* --- STYLES FROM YOUR PROVIDED CODE --- */
+        fieldset {
+            border: 3px solid #4a90e2;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        legend {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #4a90e2;
+            padding: 0 15px;
+        }
+        .option-group {
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e0e0e0;
+        }
+        .group-vocabulary { background-color: #e7f3fe; }
+        .group-rhetoric { background-color: #e8f5e9; }
+        .group-sentence-patterns { background-color: #fffbe6; }
+        .option-group h3 { margin-top: 0; margin-bottom: 15px; }
+        .connectives { margin-top: 12px; }
+        .connectives:first-of-type { margin-top: 0; }
+        .connectives strong { display: block; margin-bottom: 8px; }
+        .connectives label { display: inline-block; margin-right: 15px; }
+
+        /* ====== START: CODE ADDED FOR LAYOUT CHANGE ====== */
+        .form-row {
+            display: flex;       /* Enables flexbox layout */
+            gap: 20px;           /* Creates space between the two form groups */
+            align-items: flex-start; /* Aligns items to the top */
+        }
+
+        .form-row .form-group {
+            flex: 1;             /* Allows each group to take up equal space */
+            min-width: 0;        /* Prevents overflow issues in flex containers */
+        }
+        /* ====== END: CODE ADDED FOR LAYOUT CHANGE ====== */
+
+    </style>
+    </head>
 <body>
     <div class="container">
-        <h1>作文小幫手 - 教師設定 ✍️</h1>
-        <p>請為您的學生設定寫作指導工具，完成後點擊生成按鈕。</p>
+        <h1>AI作文小幫手 - 教師設定 ✍️</h1>
+        <p>請為您的學生設定寫作引導單，完成後點擊生成按鈕就好囉！</p>
         
         <form id="configForm">
             <fieldset>
-                <legend>基本資料</legend>
+                <legend>作文基本設定</legend>
                 <div class="form-group">
                     <label for="apiKey">您的 Gemini API Key</label>
                     <input type="password" id="apiKey" required placeholder="請在此輸入您的 API Key">
@@ -22,127 +90,198 @@
                     <label for="title">作文題目</label>
                     <input type="text" id="title" required placeholder="例如：我最難忘的一次旅行">
                 </div>
-                <div class="form-group">
-                    <label for="level">學生年級</label>
-                    <select id="level">
-                        <option value="四年級">四年級</option>
-                        <option value="五年級">五年級</option>
-                        <option value="六年級">六年級</option>
-                    </select>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="level">學生年級</label>
+                        <select id="level">
+                            <option value="三年級">三年級</option>
+                            <option value="四年級">四年級</option>
+                            <option value="五年級">五年級</option>
+                            <option value="六年級">六年級</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wordCount">字數要求</label>
+                        <select id="wordCount">
+                            <option value="150字">150字</option>
+                            <option value="300字">300字</option>
+                            <option value="400字">400字</option>
+                            <option value="500字">500字</option>
+                            <option value="600字">600字</option>                                 
+                        </select>
+                    </div>
                 </div>
-                 <div class="form-group">
-                    <label for="wordCount">字數限制</label>
-                    <select id="wordCount">
-                        <option value="100字">100字</option>
-                        <option value="500字">500字</option>
-                        <option value="800字">800字</option>
-                        <option value="1000字">1000字</option>
-                    </select>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="style">作文文體</label>
+                        <select id="style">
+                            <option value="記敘文本(記物)">記敘文本(記物)</option>
+                            <option value="記敘文本(記人)">記敘文本(記人)</option>
+                            <option value="記敘文本(記事)">記敘文本(記事)</option>
+                            <option value="記敘文本(記景)">記敘文本(記景)</option>
+                            <option value="應用文本(書信)">應用文本(書信)</option>
+                            <option value="說明文本">說明文本</option>
+                            <option value="議論文本">議論文本</option>
+                            <option value="抒情文本">抒情文本</option>
+                            <option value="詩歌">詩歌</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="structure">作文結構</label>
+                        <select id="structure">
+                            <option value="起承轉合式">起承轉合式</option>
+                            <option value="時間順序式(順敘法)">時間順序式(順敘法)</option>
+                            <option value="時間順序式(倒敘法)">時間順序式(倒敘法)</option>
+                            <option value="總分總式">總分總式</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="style">文體</label>
-                    <select id="style">
-                        <option value="記敘文本">記敘文本</option>
-                        <option value="抒情文本">抒情文本</option>
-                        <option value="應用文本">應用文本</option>
-                        <option value="說明文本">說明文本</option>
-                        <option value="議論文本">議論文本</option>
-                        <option value="詩歌">詩歌</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="structure">結構</label>
-                    <select id="structure">
-                        <option value="時間順序式">時間順序式</option>
-                        <option value="起承轉合式">起承轉合式</option>
-                        <option value="總分總式">總分總式</option>
-                        <option value="對比式">對比式</option>
-                        <option value="問題解決式">問題解決式</option>
-                    </select>
-                </div>
-            </fieldset>
+                </fieldset>
 
             <fieldset>
-                <legend>進階指導選項 (可複選)</legend>
-                <div class="form-group-checkbox">
-                    <h3>寫作技巧</h3>
-                    <label><input type="checkbox" name="skills" value="開頭技巧"> 開頭技巧</label>
-                    <label><input type="checkbox" name="skills" value="結尾技巧"> 結尾技巧</label>
-                    <label><input type="checkbox" name="skills" value="描寫技巧"> 描寫技巧</label>
-                </div>
-                <div class="form-group-checkbox">
-                    <h3>建議詞語</h3>
-                    <label><input type="checkbox" name="phrases" value="四字語詞"> 四字語詞</label>
+                <legend>作文進階指導選項 (可複選)</legend>
+                
+                <div class="form-group-checkbox option-group group-vocabulary">
+                    <h3>建議詞彙</h3>
+                    <label><input type="checkbox" name="phrases" value="語詞"> 語詞</label>
                     <label><input type="checkbox" name="phrases" value="成語"> 成語</label>
                     <label><input type="checkbox" name="phrases" value="名言佳句"> 名言佳句</label>
+                    <label><input type="checkbox" name="phrases" value="性格卡"> 性格卡</label>
+                    <label><input type="checkbox" name="phrases" value="情緒卡"> 情緒卡</label>
                 </div>
-                <div class="form-group-checkbox">
-                    <h3>建議句式</h3>
-                    <label><input type="checkbox" name="sentenceStyles" value="承接"> 承接</label>
-                    <label><input type="checkbox" name="sentenceStyles" value="轉折"> 轉折</label>
-                    <label><input type="checkbox" name="sentenceStyles" value="假設"> 假設</label>
-                    <label><input type="checkbox" name="sentenceStyles" value="條件"> 條件</label>
-                    <label><input type="checkbox" name="sentenceStyles" value="因果"> 因果</label>
-                    <label><input type="checkbox" name="sentenceStyles" value="目的"> 目的</label>
-                </div>
-                <div class="form-group-checkbox">
-                    <h3>修辭技巧</h3>
+
+                <div class="form-group-checkbox option-group group-rhetoric">
+                    <h3>建議修辭</h3>
                     <label><input type="checkbox" name="rhetoric" value="譬喻"> 譬喻</label>
                     <label><input type="checkbox" name="rhetoric" value="擬人"> 擬人</label>
                     <label><input type="checkbox" name="rhetoric" value="誇飾"> 誇飾</label>
+                    <label><input type="checkbox" name="rhetoric" value="類疊"> 類疊</label>
                     <label><input type="checkbox" name="rhetoric" value="排比"> 排比</label>
                     <label><input type="checkbox" name="rhetoric" value="雙關"> 雙關</label>
                     <label><input type="checkbox" name="rhetoric" value="映襯"> 映襯</label>
+                    <label><input type="checkbox" name="rhetoric" value="摹寫"> 摹寫</label>
                 </div>
-            </fieldset>
+                
+                <div class="option-group group-sentence-patterns">
+                    <h3>建議句型</h3>
+                    <div id="binglie" class="connectives">
+                        <strong>並列複句：</strong>
+                        <label><input type="checkbox" name="binglie" value="也"> 也</label>
+                        <label><input type="checkbox" name="binglie" value="又"> 又</label>
+                        <label><input type="checkbox" name="binglie" value="既又"> 既……又……</label>
+                        <label><input type="checkbox" name="binglie" value="一方面另一方面"> 一方面……另一方面……</label>
+                    </div>
+                    <div id="zhuanzhe" class="connectives">
+                        <strong>轉折複句：</strong>
+                        <label><input type="checkbox" name="zhuanzhe" value="雖然但是"> 雖然……但是……</label>
+                        <label><input type="checkbox" name="zhuanzhe" value="雖然卻"> 雖然……卻……</label>
+                        <label><input type="checkbox" name="zhuanzhe" value="不過"> 不過</label>
+                        <label><input type="checkbox" name="zhuanzhe" value="然而"> 然而</label>
+                        <label><input type="checkbox" name="zhuanzhe" value="可是"> 可是</label>
+                    </div>
+                    <div id="yinguo" class="connectives">
+                        <strong>因果複句：</strong>
+                        <label><input type="checkbox" name="yinguo" value="因為所以"> 因為……所以……</label>
+                        <label><input type="checkbox" name="yinguo" value="既然就"> 既然……就（那麼）……</label>
+                        <label><input type="checkbox" name="yinguo" value="因此"> 因此</label>
+                    </div>
+                    <div id="dijin" class="connectives">
+                        <strong>遞進複句：</strong>
+                        <label><input type="checkbox" name="dijin" value="更"> 更</label>
+                        <label><input type="checkbox" name="dijin" value="並且"> 並且</label>
+                        <label><input type="checkbox" name="dijin" value="不但而且"> 不但……而且……</label>
+                        <label><input type="checkbox" name="dijin" value="不僅還"> 不僅……還……</label>
+                    </div>
+                    <div id="tiaojian" class="connectives">
+                        <strong>條件複句：</strong>
+                        <label><input type="checkbox" name="tiaojian" value="只要就"> 只要……就……</label>
+                        <label><input type="checkbox" name="tiaojian" value="只有才"> 只有（除非）……才……</label>
+                        <label><input type="checkbox" name="tiaojian" value="無論都"> 無論（任憑）（不管）……都（也）……</label>
+                        <label><input type="checkbox" name="tiaojian" value="不論總"> 不論……總……</label>
+                    </div>
+                    <div id="mudi" class="connectives">
+                        <strong>目的複句：</strong>
+                        <label><input type="checkbox" name="mudi" value="為了"> 為了</label>
+                        <label><input type="checkbox" name="mudi" value="以便"> 以便</label>
+                        <label><input type="checkbox" name="mudi" value="免得"> 免得</label>
+                        <label><input type="checkbox" name="mudi" value="以免"> 以免</label>
+                        <label><input type="checkbox" name="mudi" value="為了起見"> 為了……起見……</label>
+                    </div>
+                    <div id="chengjie" class="connectives">
+                        <strong>承接複句：</strong>
+                        <label><input type="checkbox" name="chengjie" value="於是"> 於是</label>
+                        <label><input type="checkbox" name="chengjie" value="然後"> 然後</label>
+                        <label><input type="checkbox" name="chengjie" value="接著"> 接著</label>
+                        <label><input type="checkbox" name="chengjie" value="後來"> 後來</label>
+                        <label><input type="checkbox" name="chengjie" value="便"> 便</label>
+                        <label><input type="checkbox" name="chengjie" value="一就"> 一……就……</label>
+                    </div>
+                    <div id="jiashen" class="connectives">
+                        <strong>假設複句：</strong>
+                        <label><input type="checkbox" name="jiashen" value="如果就"> 如果（倘若）……就（那麼）……</label>
+                        <label><input type="checkbox" name="jiashen" value="就是也"> 就是……也……</label>
+                        <label><input type="checkbox" name="jiashen" value="假如"> 假如</label>
+                        <label><input type="checkbox" name="jiashen" value="假使"> 假使</label>
+                        <label><input type="checkbox" name="jiashen" value="假若"> 假若</label>
+                        <label><input type="checkbox" name="jiashen" value="要是"> 要是</label>
+                    </div>
+                    <div id="xuanze" class="connectives">
+                        <strong>選擇複句：</strong>
+                        <label><input type="checkbox" name="xuanze" value="要麼要麼"> 要麼……要麼……</label>
+                        <label><input type="checkbox" name="xuanze" value="或者或者"> 或者……或者……</label>
+                        <label><input type="checkbox" name="xuanze" value="是還是"> 是……還是……</label>
+                        <label><input type="checkbox" name="xuanze" value="不是就是"> 不是……就是……</label>
+                        <label><input type="checkbox" name="xuanze" value="與其不如"> 與其……不如……</label>
+                    </div>
+                </div>
 
-            <button type="submit" class="button-primary">生成學生作文工具</button>
+                <button type="submit" class="button-primary">生成學生作文引導單</button>
+            </fieldset>
         </form>
     </div>
 
 <script>
-        document.getElementById('configForm').addEventListener('submit', function(event) {
-            event.preventDefault();
+    // This script does not need modification for the layout change
+    document.getElementById('configForm').addEventListener('submit', function(event) {
+        event.preventDefault();
 
-            // 1. Get the API Key and store it in sessionStorage
-            const apiKey = document.getElementById('apiKey').value;
-            if (!apiKey) {
-                alert('請務必填寫 API Key！');
-                return;
-            }
-            sessionStorage.setItem('geminiApiKey', apiKey); // Store key securely
+        const apiKey = document.getElementById('apiKey').value;
+        if (!apiKey) {
+            alert('請務必填寫 API Key！');
+            return;
+        }
+        sessionStorage.setItem('geminiApiKey', apiKey); 
 
-            const getCheckedValues = (name) => {
-                return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
-            };
+        const getCheckedValues = (name) => {
+            return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+        };
 
-            const params = new URLSearchParams();
-            // 2. Do NOT add the API key to the URL parameters
-            params.set('title', document.getElementById('title').value);
-            params.set('level', document.getElementById('level').value);
-            params.set('wordCount', document.getElementById('wordCount').value);
-            params.set('style', document.getElementById('style').value);
-            params.set('structure', document.getElementById('structure').value);
-            
-            const skills = getCheckedValues('skills');
-            if (skills.length > 0) params.set('skills', skills.join(','));
+        const params = new URLSearchParams();
+        params.set('title', document.getElementById('title').value);
+        params.set('level', document.getElementById('level').value);
+        params.set('wordCount', document.getElementById('wordCount').value);
+        params.set('style', document.getElementById('style').value);
+        params.set('structure', document.getElementById('structure').value);
+        
+        const phrases = getCheckedValues('phrases');
+        if (phrases.length > 0) params.set('phrases', phrases.join(','));
 
-            const phrases = getCheckedValues('phrases');
-            if (phrases.length > 0) params.set('phrases', phrases.join(','));
+        const sentenceStyles = Array.from(document.querySelectorAll('.group-sentence-patterns input[type="checkbox"]:checked'))
+                                      .map(cb => cb.value);
+        if (sentenceStyles.length > 0) params.set('sentenceStyles', sentenceStyles.join(','));
 
-            const sentenceStyles = getCheckedValues('sentenceStyles');
-            if (sentenceStyles.length > 0) params.set('sentenceStyles', sentenceStyles.join(','));
+        const rhetoric = getCheckedValues('rhetoric');
+        if (rhetoric.length > 0) params.set('rhetoric', rhetoric.join(','));
 
-            const rhetoric = getCheckedValues('rhetoric');
-            if (rhetoric.length > 0) params.set('rhetoric', rhetoric.join(','));
+        if (!params.get('title')) {
+            alert('請務必填寫作文題目！');
+            return;
+        }
 
-            if (!params.get('title')) {
-                alert('請務必填寫作文題目！');
-                return;
-            }
-
-            window.location.href = `student_tool.html?${params.toString()}`;
-        });
-    </script>
+        window.location.href = `student_tool.html?${params.toString()}`;
+    });
+</script>
 </body>
 </html>
